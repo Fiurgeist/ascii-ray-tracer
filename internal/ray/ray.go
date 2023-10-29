@@ -1,7 +1,6 @@
 package ray
 
 import (
-	"github.com/fiurgeist/ascii-ray-tracer/internal/color"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/vector"
 )
 
@@ -10,6 +9,6 @@ type Ray struct {
 	Direction vector.Vector
 }
 
-func (r Ray) Trace(background color.Color) color.Color {
-	return background
+func NewRay(start vector.Vector, direction vector.Vector) Ray {
+	return Ray{Start: start, Direction: direction.Normalize()}
 }

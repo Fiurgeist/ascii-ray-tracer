@@ -19,7 +19,7 @@ type Camera struct {
 }
 
 func NewCamera(location vector.Vector, lookAt vector.Vector) Camera {
-	direction := lookAt.Substract(location)
+	direction := lookAt.Substract(location).Normalize()
 	right := vector.Y.Cross(direction).Normalize().Scale(width / 2)
 	down := right.Cross(direction).Normalize().Scale(height / 2)
 	return Camera{
@@ -35,5 +35,5 @@ func (c Camera) RayFor(x float64, y float64) ray.Ray {
 	xRay := c.right.Scale(x)
 	yRay := c.down.Scale(y)
 	rayDirection := c.direction.Add(xRay).Add(yRay)
-	return ray.Ray{Start: c.location, Direction: rayDirection}
+	return ray.NewRay(c.location, rayDirection)
 }
