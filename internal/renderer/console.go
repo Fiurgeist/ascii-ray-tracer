@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/fiurgeist/ascii-ray-tracer/internal/color"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/scene"
@@ -27,6 +28,7 @@ type ConsoleRenderer struct {
 
 func (r ConsoleRenderer) Render(scene scene.Scene) {
 	var sb strings.Builder
+	start := time.Now()
 	width := float64(r.Width)
 	height := float64(r.Height)
 
@@ -45,6 +47,7 @@ func (r ConsoleRenderer) Render(scene scene.Scene) {
 		sb.WriteString("\n")
 	}
 	io.WriteString(os.Stdout, sb.String())
+	io.WriteString(os.Stdout, fmt.Sprintf("Rendering took %fs\n", time.Since(start).Seconds()))
 }
 
 func ansiColor(color color.Color) string {

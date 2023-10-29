@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/fiurgeist/ascii-ray-tracer/internal/color"
+	"github.com/fiurgeist/ascii-ray-tracer/internal/material"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/ray"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/settings"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/vector"
@@ -12,20 +13,20 @@ import (
 var _ Object = (*Sphere)(nil)
 
 type Sphere struct {
-	center vector.Vector
-	radius float64
-	color  color.Color
+	center   vector.Vector
+	radius   float64
+	material material.Material
 }
 
-func NewSphere(center vector.Vector, radius float64, color color.Color) Sphere {
+func NewSphere(center vector.Vector, radius float64, material material.Material) Sphere {
 	return Sphere{
-		center: center,
-		radius: radius,
-		color:  color,
+		center:   center,
+		radius:   radius,
+		material: material,
 	}
 }
 
-func (s Sphere) Color() color.Color { return s.color }
+func (s Sphere) Color() color.Color { return s.material.Color() }
 
 func (s Sphere) ClosestDistanceAlongRay(ray ray.Ray) float64 {
 	os := ray.Start.Substract(s.center)
@@ -50,4 +51,8 @@ func (s Sphere) ClosestDistanceAlongRay(ray ray.Ray) float64 {
 	}
 
 	return math.Inf(1)
+}
+
+func (s Sphere) NormalAt(point vector.Vector) vector.Vector {
+	return point.Add(s.center.Invert()).Normalize()
 }
