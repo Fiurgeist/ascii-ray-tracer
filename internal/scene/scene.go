@@ -7,6 +7,7 @@ import (
 	"github.com/fiurgeist/ascii-ray-tracer/internal/color"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/light"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/object"
+	"github.com/fiurgeist/ascii-ray-tracer/internal/ray"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/vector"
 )
 
@@ -41,6 +42,9 @@ func (s Scene) colorAt(point vector.Vector, object object.Object) color.Color {
 	color := color.Black
 	for _, light := range s.Lights {
 		lightVector := light.Position().Substract(point)
+		if s.inShadow(point, lightVector) {
+			continue
+		}
 		brightness := normal.Dot(lightVector.Normalize())
 		if brightness <= 0 {
 			continue
@@ -49,4 +53,13 @@ func (s Scene) colorAt(point vector.Vector, object object.Object) color.Color {
 		color = color.Add(illumination)
 	}
 	return color
+}
+
+func (s Scene) inShadow(point vector.Vector, lightVector vector.Vector) bool {
+	for _, object := range s.Objects {
+		if object.ClosestDistanceAlongRay(ray.NewRay(point, lightVector)) <= lightVector.Length() {
+			return true
+		}
+	}
+	return false
 }

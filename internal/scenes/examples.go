@@ -32,7 +32,7 @@ func AssortedObjects() scene.Scene {
 	objects := []object.Object{
 		object.NewPlane(vector.Y, 0, material.NewMaterial(color.White)),
 		object.NewBox(vector.Vector{X: -2, Y: 0, Z: -2}, vector.Vector{X: 2, Y: 4, Z: 2}, material.NewMaterial(color.Red)),
-		object.NewSphere(vector.Vector{X: 6, Y: 0, Z: 2}, 2, material.NewMaterial(color.Magenta)),
+		object.NewSphere(vector.Vector{X: 7, Y: 0, Z: 2}, 2, material.NewMaterial(color.Magenta)),
 		object.NewSphere(vector.Vector{X: 6, Y: 1, Z: -4}, 1, material.NewMaterial(color.Yellow)),
 		object.NewSphere(vector.Vector{X: -2, Y: 2, Z: 4}, 2, material.NewMaterial(color.Green)),
 		object.NewSphere(vector.Vector{X: -4, Y: 4, Z: 10}, 4, material.NewMaterial(color.Blue)),
