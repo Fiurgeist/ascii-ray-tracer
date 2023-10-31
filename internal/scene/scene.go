@@ -8,6 +8,7 @@ import (
 	"github.com/fiurgeist/ascii-ray-tracer/internal/light"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/object"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/ray"
+	"github.com/fiurgeist/ascii-ray-tracer/internal/settings"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/vector"
 )
 
@@ -19,10 +20,16 @@ type Scene struct {
 }
 
 func (s Scene) Trace(x float64, y float64) color.Color {
+	ray := s.Camera.RayFor(x, y)
+	return s.traceRay(ray, 0)
+}
+
+func (s Scene) traceRay(ray ray.Ray, depth int) color.Color {
+	if depth > settings.MAX_DEPTH {
+		return color.Black
+	}
 	var nearestObject object.Object
 	shortestDistance := math.Inf(1)
-	ray := s.Camera.RayFor(x, y)
-
 	for _, obj := range s.Objects {
 		if distance := obj.ClosestDistanceAlongRay(ray); distance < shortestDistance {
 			shortestDistance = distance
@@ -34,13 +41,15 @@ func (s Scene) Trace(x float64, y float64) color.Color {
 		return s.Background
 	}
 	point := ray.PointAtDistance(shortestDistance)
-	return s.colorAt(point, nearestObject, ray)
+	return s.colorAt(point, nearestObject, ray, depth+1)
 }
 
-func (s Scene) colorAt(point vector.Vector, object object.Object, ray ray.Ray) color.Color {
+func (s Scene) colorAt(point vector.Vector, object object.Object, ray ray.Ray, depth int) color.Color {
 	normal := object.NormalAt(point)
 	color := object.Material().AmbientColor()
 	reflectionVector := ray.Reflect(normal)
+	reflection := s.reflectionFor(object, point, reflectionVector, depth)
+	color = color.Add(reflection)
 	for _, light := range s.Lights {
 		lightVector := light.Position().Substract(point)
 		if s.inShadow(point, lightVector) {
@@ -68,4 +77,13 @@ func (s Scene) inShadow(point vector.Vector, lightVector vector.Vector) bool {
 		}
 	}
 	return false
+}
+
+func (s Scene) reflectionFor(object object.Object, point vector.Vector, reflectionVector vector.Vector, depth int) color.Color {
+	if object.Material().Reflection() == 0 {
+		return color.Black
+	}
+	reflectedRay := ray.NewRay(point, reflectionVector)
+	reflectedColor := s.traceRay(reflectedRay, depth)
+	return reflectedColor.Scale(object.Material().Reflection())
 }

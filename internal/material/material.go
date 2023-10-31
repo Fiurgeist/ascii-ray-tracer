@@ -25,3 +25,7 @@ func (m Material) DiffuseColor() color.Color {
 func (m Material) HighlightFor(reflection, light vector.Vector, lightColor color.Color) color.Color {
 	return m.finish.highlightFor(reflection, light, lightColor)
 }
+
+func (m Material) Reflection() float64 {
+	return m.finish.reflection
+}

@@ -27,7 +27,7 @@ func ColoredSpheres() scene.Scene {
 }
 
 func AssortedObjects() scene.Scene {
-	camera := camera.NewCamera(vector.Vector{X: -10, Y: 10, Z: -20}, vector.Vector{X: 0, Y: 4, Z: 0})
+	camera := camera.NewCamera(vector.Vector{X: -5, Y: 7, Z: -15}, vector.Vector{X: 0, Y: 4, Z: 0})
 	background := color.Grey
 	objects := []object.Object{
 		object.NewPlane(vector.Y, 0, material.NewMaterial(color.White, material.DefaultFinish())),
