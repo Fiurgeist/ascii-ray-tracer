@@ -34,23 +34,29 @@ func (s Scene) Trace(x float64, y float64) color.Color {
 		return s.Background
 	}
 	point := ray.PointAtDistance(shortestDistance)
-	return s.colorAt(point, nearestObject)
+	return s.colorAt(point, nearestObject, ray)
 }
 
-func (s Scene) colorAt(point vector.Vector, object object.Object) color.Color {
+func (s Scene) colorAt(point vector.Vector, object object.Object, ray ray.Ray) color.Color {
 	normal := object.NormalAt(point)
-	color := color.Black
+	color := object.Material().AmbientColor()
+	reflectionVector := ray.Reflect(normal)
 	for _, light := range s.Lights {
 		lightVector := light.Position().Substract(point)
 		if s.inShadow(point, lightVector) {
 			continue
 		}
+
 		brightness := normal.Dot(lightVector.Normalize())
 		if brightness <= 0 {
 			continue
 		}
-		illumination := object.Color().Multiply(light.Color()).Scale(brightness)
+
+		illumination := object.Material().DiffuseColor().Multiply(light.Color()).Scale(brightness)
 		color = color.Add(illumination)
+
+		highlight := object.Material().HighlightFor(reflectionVector, lightVector, light.Color())
+		color = color.Add(highlight)
 	}
 	return color
 }

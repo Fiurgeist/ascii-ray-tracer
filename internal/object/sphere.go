@@ -3,7 +3,6 @@ package object
 import (
 	"math"
 
-	"github.com/fiurgeist/ascii-ray-tracer/internal/color"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/material"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/ray"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/settings"
@@ -26,7 +25,7 @@ func NewSphere(center vector.Vector, radius float64, material material.Material)
 	}
 }
 
-func (s Sphere) Color() color.Color { return s.material.Color() }
+func (s Sphere) Material() material.Material { return s.material }
 
 func (s Sphere) ClosestDistanceAlongRay(ray ray.Ray) float64 {
 	os := ray.Start.Substract(s.center)

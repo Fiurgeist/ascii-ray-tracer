@@ -3,7 +3,6 @@ package object
 import (
 	"math"
 
-	"github.com/fiurgeist/ascii-ray-tracer/internal/color"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/material"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/ray"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/settings"
@@ -26,7 +25,7 @@ func NewPlane(normal vector.Vector, distance float64, material material.Material
 	}
 }
 
-func (p Plane) Color() color.Color { return p.material.Color() }
+func (p Plane) Material() material.Material { return p.material }
 
 func (p Plane) ClosestDistanceAlongRay(ray ray.Ray) float64 {
 	a := ray.Direction.Dot(p.normal)

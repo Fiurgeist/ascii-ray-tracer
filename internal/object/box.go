@@ -4,7 +4,6 @@ import (
 	"log"
 	"math"
 
-	"github.com/fiurgeist/ascii-ray-tracer/internal/color"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/material"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/ray"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/settings"
@@ -30,7 +29,7 @@ func NewBox(corner1 vector.Vector, corner2 vector.Vector, material material.Mate
 	}
 }
 
-func (b Box) Color() color.Color { return b.material.Color() }
+func (b Box) Material() material.Material { return b.material }
 
 func (b Box) ClosestDistanceAlongRay(ray ray.Ray) float64 {
 	intersections := b.intersectionsOnAxis(ray, getX, getY, getZ)
