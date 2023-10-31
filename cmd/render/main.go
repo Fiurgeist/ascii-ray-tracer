@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	scene := scenes.ColoredSpheres()
+	scene := scenes.AssortedObjects()
 
 	renderer := renderer.ConsoleRenderer{Width: 160, Height: 90}
 	renderer.Render(scene)

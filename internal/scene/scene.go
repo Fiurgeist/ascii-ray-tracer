@@ -38,7 +38,6 @@ func (s Scene) Trace(x float64, y float64) color.Color {
 
 func (s Scene) colorAt(point vector.Vector, object object.Object) color.Color {
 	normal := object.NormalAt(point)
-
 	color := color.Black
 	for _, light := range s.Lights {
 		lightVector := light.Position().Substract(point)
