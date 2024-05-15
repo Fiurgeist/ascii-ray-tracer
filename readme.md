@@ -2,7 +2,7 @@
 
 Ray-tracing a scene and "printing" the result to the console.
 Terminal settings:
-- Font: Liberation Mono (for proper dimensions)
+- Font: Liberation Mono (for ok dimensions, spheres are still a bit ellipsoid^^)
 - Size: 1 (for high res mode)
 
 #### High-res Test Render
