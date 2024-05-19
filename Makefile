@@ -5,7 +5,7 @@ install:
 
 .PHONY: run
 run:
-	go run -race ./cmd/render/main.go -width=$(width) -height=$(height)
+	go run -race ./cmd/render/main.go -width=$(width) -height=$(height) -mode=$(mode) -parallel=$(parallel)
 
 .PHONY: render-low-res
 render-low-res:
