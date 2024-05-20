@@ -22,22 +22,31 @@ const (
 var _ Renderer = (*ConsoleRenderer)(nil)
 
 type ConsoleRenderer struct {
-	Width  int
-	Height int
+	Width    int
+	Height   int
+	Parallel int
 }
 
-func (r ConsoleRenderer) Render(scene scene.Scene, parallel int) {
+func (r ConsoleRenderer) Render(scene scene.Scene) {
 	start := time.Now()
 
 	fmt.Printf("%s2J", esc)
+
+	r.render(scene)
+
+	fmt.Printf("%s%d;%dH", esc, r.Height/2+1, 1)
+	fmt.Printf("Rendering took: %fs\n", time.Since(start).Seconds())
+}
+
+func (r ConsoleRenderer) render(scene scene.Scene) {
 	fmt.Printf("%s%d;%dH", esc, 1, 1)
 
-	inc := int(math.Ceil(float64(r.Width) / float64(parallel)))
+	inc := int(math.Ceil(float64(r.Width) / float64(r.Parallel)))
 	startX := 0
 	endX := inc
 
 	var wg sync.WaitGroup
-	for range parallel {
+	for range r.Parallel {
 		wg.Add(1)
 
 		go func(startX, endX int) {
@@ -53,9 +62,6 @@ func (r ConsoleRenderer) Render(scene scene.Scene, parallel int) {
 	}
 
 	wg.Wait()
-
-	fmt.Printf("%s%d;%dH", esc, r.Height/2+1, 1)
-	fmt.Printf("Rendering took %fs\n", time.Since(start).Seconds())
 }
 
 func (r ConsoleRenderer) renderSection(scene scene.Scene, startX, endX int) {

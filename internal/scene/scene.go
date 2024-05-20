@@ -14,7 +14,7 @@ import (
 
 type Scene struct {
 	Background color.Color
-	Camera     camera.Camera
+	Camera     *camera.Camera
 	Objects    []object.Object
 	Lights     []light.Light
 }

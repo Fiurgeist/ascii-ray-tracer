@@ -5,6 +5,10 @@ Terminal settings:
 - Font: Liberation Mono (for ok dimensions, spheres are still a bit ellipsoid^^)
 - Size: 1 (for high res mode)
 
+#### Loop
+`./raytracer -width=160 -height=90 -mode=loop -parallel=1`
+![High-res render result](img/loop.gif)
+
 #### High-res Test Render
 ![High-res render result](img/raytrace-high-res.png)
 

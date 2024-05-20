@@ -21,12 +21,16 @@ func main() {
 
 	switch *mode {
 	case "console":
-		renderMode = renderer.ConsoleRenderer{Width: *width, Height: *height}
+		renderMode = &renderer.ConsoleRenderer{Width: *width, Height: *height, Parallel: *parallel}
+	case "loop":
+		renderMode = &renderer.GameLoopRenderer{
+			Renderer: renderer.ConsoleRenderer{Width: *width, Height: *height, Parallel: *parallel},
+		}
 	case "noop":
-		renderMode = renderer.NoopRenderer{Width: *width, Height: *height}
+		renderMode = &renderer.NoopRenderer{Width: *width, Height: *height, Parallel: *parallel}
 	default:
 		log.Fatalf("unsuppoted render mode %s", *mode)
 	}
 
-	renderMode.Render(scene, *parallel)
+	renderMode.Render(scene)
 }
