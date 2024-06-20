@@ -20,6 +20,10 @@ type Color struct {
 	b uint8
 }
 
+func NewColor(r, g, b uint8) Color {
+	return Color{r: r, b: b, g: g}
+}
+
 func clampedAdd(a uint8, b uint8) uint8 {
 	sum := uint16(a) + uint16(b)
 	if sum > 255 {

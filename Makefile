@@ -5,7 +5,7 @@ install:
 
 .PHONY: run
 run:
-	go run -race ./cmd/render/main.go -width=$(width) -height=$(height) -mode=$(mode) -parallel=$(parallel)
+	go run -race ./cmd/render/main.go -width=$(width) -height=$(height) -display=$(display) -processor=$(processor) -output=$(output) -parallel=$(parallel)
 
 .PHONY: build
 build:

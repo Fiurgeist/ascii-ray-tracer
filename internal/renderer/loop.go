@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fiurgeist/ascii-ray-tracer/internal/scene"
+	"github.com/fiurgeist/ascii-ray-tracer/internal/shader"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/vector"
 )
 
@@ -20,7 +21,14 @@ type GameLoopRenderer struct {
 	radius float64
 }
 
-func (r *GameLoopRenderer) Render(scene scene.Scene) {
+func (r *GameLoopRenderer) Render(scene scene.Scene, processor string) {
+	if processor == "gpu" {
+		r.Renderer.shader = &shader.Shader{Width: int32(r.Renderer.Width), Height: int32(r.Renderer.Height)}
+
+		r.Renderer.shader.Init()
+		defer r.Renderer.shader.Delete()
+	}
+
 	rVec := scene.Camera.Location.Substract(scene.Camera.LookAt)
 	r.radius = math.Sqrt(rVec.X*rVec.X + rVec.Z*rVec.Z)
 	r.angle = math.Asin(rVec.Z / r.radius)
@@ -33,7 +41,12 @@ func (r *GameLoopRenderer) Render(scene scene.Scene) {
 		start := time.Now()
 
 		r.update(delta, scene)
-		r.Renderer.render(scene)
+
+		if processor == "gpu" {
+			r.Renderer.gpuRender(scene)
+		} else {
+			r.Renderer.cpuRender(scene)
+		}
 
 		delta = time.Since(start).Seconds()
 		fmt.Printf("%s%d;%dH", esc, r.Renderer.Height/2+1, 1)

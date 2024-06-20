@@ -17,7 +17,7 @@ type NoopRenderer struct {
 	Parallel int
 }
 
-func (r NoopRenderer) Render(scene scene.Scene) {
+func (r NoopRenderer) Render(scene scene.Scene, _ string) {
 	start := time.Now()
 
 	inc := int(math.Ceil(float64(r.Width) / float64(r.Parallel)))

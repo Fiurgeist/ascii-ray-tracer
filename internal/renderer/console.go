@@ -9,6 +9,7 @@ import (
 
 	"github.com/fiurgeist/ascii-ray-tracer/internal/color"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/scene"
+	"github.com/fiurgeist/ascii-ray-tracer/internal/shader"
 )
 
 const (
@@ -25,25 +26,48 @@ type ConsoleRenderer struct {
 	Width    int
 	Height   int
 	Parallel int
+	shader   *shader.Shader
 }
 
-func (r ConsoleRenderer) Render(scene scene.Scene) {
+type PixelGetter func(x, y int) color.Color
+
+func (r ConsoleRenderer) Render(scene scene.Scene, processor string) {
+	if processor == "gpu" {
+		r.shader = &shader.Shader{Width: int32(r.Width), Height: int32(r.Height)}
+
+		r.shader.Init()
+		defer r.shader.Delete()
+	}
+
 	start := time.Now()
 
 	fmt.Printf("%s2J", esc)
 
-	r.render(scene)
+	if processor == "gpu" {
+		r.gpuRender(scene)
+	} else {
+		r.cpuRender(scene)
+	}
 
 	fmt.Printf("%s%d;%dH", esc, r.Height/2+1, 1)
 	fmt.Printf("Rendering took: %fs\n", time.Since(start).Seconds())
 }
 
-func (r ConsoleRenderer) render(scene scene.Scene) {
+func (r ConsoleRenderer) cpuRender(scene scene.Scene) {
 	fmt.Printf("%s%d;%dH", esc, 1, 1)
 
 	inc := int(math.Ceil(float64(r.Width) / float64(r.Parallel)))
 	startX := 0
 	endX := inc
+	width := float64(r.Width)
+	height := float64(r.Height)
+
+	getPixel := func(px, py int) color.Color {
+		x := (float64(px) / width) - 0.5
+		y := (float64(py) / height) - 0.5
+
+		return scene.Trace(x, y)
+	}
 
 	var wg sync.WaitGroup
 	for range r.Parallel {
@@ -51,7 +75,7 @@ func (r ConsoleRenderer) render(scene scene.Scene) {
 
 		go func(startX, endX int) {
 			defer wg.Done()
-			r.renderSection(scene, startX, endX)
+			r.renderSection(startX, endX, getPixel)
 		}(startX, endX)
 
 		startX = endX
@@ -64,20 +88,26 @@ func (r ConsoleRenderer) render(scene scene.Scene) {
 	wg.Wait()
 }
 
-func (r ConsoleRenderer) renderSection(scene scene.Scene, startX, endX int) {
-	width := float64(r.Width)
-	height := float64(r.Height)
+func (r ConsoleRenderer) gpuRender(scene scene.Scene) {
+	fmt.Printf("%s%d;%dH", esc, 1, 1)
 
-	for py := 0; py < r.Height; py += 2 {
+	pixels := r.shader.Compute(scene)
+	getPixel := func(x, y int) color.Color {
+		pos := (x + y*r.Width) * 3
+
+		return color.NewColor(uint8(pixels[pos]), uint8(pixels[pos+1]), uint8(pixels[pos+2]))
+	}
+
+	r.renderSection(0, r.Width, getPixel)
+}
+
+func (r ConsoleRenderer) renderSection(startX, endX int, getPixel PixelGetter) {
+	for y := 0; y < r.Height; y += 2 {
 		var sb strings.Builder
 
-		for px := startX; px < endX; px++ {
-			x := (float64(px) / width) - 0.5
-			y1 := (float64(py) / height) - 0.5
-			y2 := (float64(py+1) / height) - 0.5
-
-			foregroundColor := scene.Trace(x, y1)
-			backgroundColor := scene.Trace(x, y2)
+		for x := startX; x < endX; x++ {
+			foregroundColor := getPixel(x, y)
+			backgroundColor := getPixel(x, y+1)
 
 			sb.WriteString(fmt.Sprintf(
 				"%s%s%s%s",
@@ -85,7 +115,7 @@ func (r ConsoleRenderer) renderSection(scene scene.Scene, startX, endX int) {
 			))
 		}
 
-		fmt.Printf("%s%d;%dH%s", esc, py/2+1, startX, sb.String())
+		fmt.Printf("%s%d;%dH%s", esc, y/2+1, startX, sb.String())
 	}
 }
 

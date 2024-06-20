@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
 
 	"github.com/fiurgeist/ascii-ray-tracer/internal/renderer"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/scenes"
@@ -11,26 +10,29 @@ import (
 func main() {
 	width := flag.Int("width", 160, "rendered width")
 	height := flag.Int("height", 90, "rendered height")
-	mode := flag.String("mode", "console", "render mode")
-	parallel := flag.Int("parallel", 1, "number of parallel render chunks")
+	display := flag.String("display", "console", "display mode; console or noop")
+	processor := flag.String("processor", "cpu", "processor type; cpu or gpu")
+	output := flag.String("output", "still", "output type; still or loop")
+	parallel := flag.Int("parallel", 1, "if cpu: number of parallel render chunks")
 	flag.Parse()
 
 	scene := scenes.AssortedObjects()
 
 	var renderMode renderer.Renderer
 
-	switch *mode {
-	case "console":
-		renderMode = &renderer.ConsoleRenderer{Width: *width, Height: *height, Parallel: *parallel}
-	case "loop":
-		renderMode = &renderer.GameLoopRenderer{
-			Renderer: renderer.ConsoleRenderer{Width: *width, Height: *height, Parallel: *parallel},
-		}
-	case "noop":
+	if *display == "noop" {
 		renderMode = &renderer.NoopRenderer{Width: *width, Height: *height, Parallel: *parallel}
-	default:
-		log.Fatalf("unsuppoted render mode %s", *mode)
+	} else {
+		consoleMode := &renderer.ConsoleRenderer{Width: *width, Height: *height, Parallel: *parallel}
+
+		renderMode = consoleMode
+
+		if *output == "loop" {
+			renderMode = &renderer.GameLoopRenderer{
+				Renderer: *consoleMode,
+			}
+		}
 	}
 
-	renderMode.Render(scene)
+	renderMode.Render(scene, *processor)
 }

@@ -6,7 +6,7 @@ Terminal settings:
 - Size: 1 (for high res mode)
 
 #### Loop
-`./raytracer -width=160 -height=90 -mode=loop -parallel=1`
+`./raytracer -width=160 -height=90 -output=loop`
 ![High-res render result](img/loop.gif)
 
 #### High-res Test Render
