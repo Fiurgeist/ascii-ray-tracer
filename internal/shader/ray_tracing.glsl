@@ -90,6 +90,10 @@ Ray rayFor(Camera camera, float x, float y) {
   return newRay(camera.location, rayDirection);
 }
 
+vec3 pointAtDistance(Ray ray, float distance) {
+  return ray.start + (ray.direction * distance);
+}
+
 // ----------------------------------------
 // Sphere
 // ----------------------------------------
@@ -125,6 +129,19 @@ float SphereClosestDistanceAlongRay(Sphere sphere, Ray ray) {
   return INF;
 }
 
+vec3 SphereNormalAt(Sphere sphere, vec3 point) {
+  return normalize(point + (-1 * sphere.center));
+}
+
+// ----------------------------------------
+// Light
+// ----------------------------------------
+
+struct Light {
+  vec3 position;
+  vec3 color;
+};
+
 // ----------------------------------------
 // Scene
 // ----------------------------------------
@@ -138,9 +155,28 @@ Sphere spheres[6] = Sphere[6](
   Sphere(vec3(-3.2, 1, -1), 1, vec3(0, 255, 255))
 );
 
+Light lights[1] = Light[1](Light(vec3(-30, 25, -12), vec3(255, 255, 255)));
+
 struct Scene {
   Camera camera;
 };
+
+vec3 colorAt(Scene scene, vec3 point, Sphere sphere) {
+  vec3 normal = SphereNormalAt(sphere, point);
+
+  vec3 color = vec3(0, 0, 0);
+  for (int i = 0; i < lights.length(); ++i) {
+    vec3 lightVector = lights[i].position - point;
+    float brightness = dot(normal, normalize(lightVector));
+    if (brightness <= 0) {
+      continue;
+    }
+    vec3 illumination = clamp(sphere.color * lights[i].color, 0, 255) * brightness;
+    color = clamp(color + illumination, 0, 255);
+  }
+
+  return color;
+}
 
 vec3 trace(Scene scene, float x, float y) {
   Ray ray = rayFor(scene.camera, x, y);
@@ -160,7 +196,8 @@ vec3 trace(Scene scene, float x, float y) {
     return background;
   }
 
-  return nearest.color;
+  vec3 point = pointAtDistance(ray, shortestDistance);
+  return colorAt(scene, point, nearest);
 }
 
 // ----------------------------------------
@@ -168,7 +205,6 @@ vec3 trace(Scene scene, float x, float y) {
 // ----------------------------------------
 
 void main() {
-  // Camera camera = newCamera(vec3(-5, 7, -15), vec3(0, 0, 0));
   Camera camera = newCamera(vec3(-5, 7, -15), vec3(0, 4, 0));
   Scene scene = Scene(camera);
 
