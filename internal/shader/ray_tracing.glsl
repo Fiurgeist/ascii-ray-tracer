@@ -104,7 +104,7 @@ struct Sphere {
   vec3 color;
 };
 
-float SphereClosestDistanceAlongRay(Sphere sphere, Ray ray) {
+float sphereClosestDistanceAlongRay(Sphere sphere, Ray ray) {
   vec3 os = ray.start - sphere.center;
   float b = 2. * dot(os, ray.direction);
   float c = squid(os) - sphere.radius*sphere.radius;
@@ -129,8 +129,133 @@ float SphereClosestDistanceAlongRay(Sphere sphere, Ray ray) {
   return INF;
 }
 
-vec3 SphereNormalAt(Sphere sphere, vec3 point) {
+vec3 sphereNormalAt(Sphere sphere, vec3 point) {
   return normalize(point + (-1 * sphere.center));
+}
+
+// ----------------------------------------
+// Plane
+// ----------------------------------------
+
+struct Plane {
+  vec3 normal;
+  float distance;
+  vec3 color;
+};
+
+float planeClosestDistanceAlongRay(Plane plane, Ray ray) {
+  float a = dot(ray.direction, plane.normal);
+  if (a == 0) {
+    return INF;
+  }
+
+  float b = dot(plane.normal, ray.start + (plane.normal * -plane.distance));
+  float distance = -b / a;
+  if (distance > THRESHOLD) {
+    return distance;
+  }
+
+  return INF;
+}
+
+// ----------------------------------------
+// Box
+// ----------------------------------------
+
+struct Box {
+  vec3 lowerCorner;
+  vec3 upperCorner;
+  vec3 color;
+};
+
+float boxClosestDistanceAlongRay(Box box, Ray ray) {
+  float distances[6] = float[6](INF, INF, INF, INF, INF, INF);
+
+  vec3 lower = (box.lowerCorner - ray.start) / ray.direction;
+  vec3 upper = (box.upperCorner - ray.start) / ray.direction;
+
+  if (ray.direction.x != 0) {
+    vec3 point = ray.start + (ray.direction * lower.x);
+    if (box.lowerCorner.y < point.y && point.y < box.upperCorner.y
+      && box.lowerCorner.z < point.z && point.z < box.upperCorner.z
+    ) {
+      distances[0] = lower.x;
+    }
+
+    point = ray.start + (ray.direction * upper.x);
+    if (box.lowerCorner.y < point.y && point.y < box.upperCorner.y
+      && box.lowerCorner.z < point.z && point.z < box.upperCorner.z
+    ) {
+      distances[1] = upper.x;
+    }
+  }
+
+  if (ray.direction.y != 0) {
+    vec3 point = ray.start + (ray.direction * lower.y);
+    if (box.lowerCorner.x < point.x && point.x < box.upperCorner.x
+      && box.lowerCorner.z < point.z && point.z < box.upperCorner.z
+    ) {
+      distances[2] = lower.y;
+    }
+
+    point = ray.start + (ray.direction * upper.y);
+    if (box.lowerCorner.x < point.x && point.x < box.upperCorner.x
+      && box.lowerCorner.z < point.z && point.z < box.upperCorner.z
+    ) {
+      distances[3] = upper.y;
+    }
+  }
+
+  if (ray.direction.z != 0) {
+    vec3 point = ray.start + (ray.direction * lower.z);
+    if (box.lowerCorner.y < point.y && point.y < box.upperCorner.y
+      && box.lowerCorner.x < point.x && point.x < box.upperCorner.x
+    ) {
+      distances[4] = lower.z;
+    }
+
+    point = ray.start + (ray.direction * upper.z);
+    if (box.lowerCorner.y < point.y && point.y < box.upperCorner.y
+      && box.lowerCorner.x < point.x && point.x < box.upperCorner.x
+    ) {
+      distances[5] = upper.z;
+    }
+  }
+
+  float shortest = INF;
+  for (int i = 0; i < 6; ++i) {
+    if (distances[i] < shortest && distances[i] > THRESHOLD) {
+      shortest = distances[i];
+    }
+  }
+
+  return shortest;
+}
+
+vec3 boxNormalAt(Box box, vec3 point) {
+  vec3 lowerDiff = abs(box.lowerCorner - point);
+  if (lowerDiff.x < THRESHOLD) {
+    return UNITS.XI;
+  }
+  if (lowerDiff.y < THRESHOLD) {
+    return UNITS.YI;
+  }
+  if (lowerDiff.z < THRESHOLD) {
+    return UNITS.ZI;
+  }
+
+  vec3 upperDiff = abs(box.upperCorner - point);
+  if (upperDiff.x < THRESHOLD) {
+    return UNITS.X;
+  }
+  if (upperDiff.y < THRESHOLD) {
+    return UNITS.Y;
+  }
+  if (upperDiff.z < THRESHOLD) {
+    return UNITS.Z;
+  }
+
+  return UNITS.O;
 }
 
 // ----------------------------------------
@@ -146,8 +271,7 @@ struct Light {
 // Scene
 // ----------------------------------------
 
-Sphere spheres[6] = Sphere[6](
-  Sphere(vec3(0, 2, 0), 2, vec3(255, 0, 0)),
+Sphere spheres[5] = Sphere[5](
   Sphere(vec3(7, 0, 2), 2, vec3(255, 0, 255)),
   Sphere(vec3(6, 1, -4), 1, vec3(255, 255, 0)),
   Sphere(vec3(-2, 2, 4), 2, vec3(0, 255, 0)),
@@ -155,15 +279,17 @@ Sphere spheres[6] = Sphere[6](
   Sphere(vec3(-3.2, 1, -1), 1, vec3(0, 255, 255))
 );
 
+Plane planes[1] = Plane[1](Plane(UNITS.Y, 0, vec3(255, 255, 255)));
+
+Box boxes[1] = Box[1](Box(vec3(-2, 0, -2), vec3(2, 4, 2), vec3(255, 0, 0)));
+
 Light lights[1] = Light[1](Light(vec3(-30, 25, -12), vec3(255, 255, 255)));
 
 struct Scene {
   Camera camera;
 };
 
-vec3 colorAt(Scene scene, vec3 point, Sphere sphere) {
-  vec3 normal = SphereNormalAt(sphere, point);
-
+vec3 colorAt(Scene scene, vec3 point, vec3 objColor, vec3 normal) {
   vec3 color = vec3(0, 0, 0);
   for (int i = 0; i < lights.length(); ++i) {
     vec3 lightVector = lights[i].position - point;
@@ -171,7 +297,7 @@ vec3 colorAt(Scene scene, vec3 point, Sphere sphere) {
     if (brightness <= 0) {
       continue;
     }
-    vec3 illumination = clamp(sphere.color * lights[i].color, 0, 255) * brightness;
+    vec3 illumination = clamp(objColor * lights[i].color, 0, 255) * brightness;
     color = clamp(color + illumination, 0, 255);
   }
 
@@ -181,23 +307,57 @@ vec3 colorAt(Scene scene, vec3 point, Sphere sphere) {
 vec3 trace(Scene scene, float x, float y) {
   Ray ray = rayFor(scene.camera, x, y);
 
-  Sphere nearest = Sphere(vec3(0, 0, 0), 0, vec3(0, 0, 0));
+  int nearestIdx = -1;
+  int nearestType = -1;
   float shortestDistance = INF;
 
   for (int i = 0; i < spheres.length(); ++i) {
-    float distance = SphereClosestDistanceAlongRay(spheres[i], ray);
+    float distance = sphereClosestDistanceAlongRay(spheres[i], ray);
     if (distance < shortestDistance) {
       shortestDistance = distance;
-      nearest = spheres[i];
+      nearestIdx = i;
+      nearestType = 0;
     }
   }
 
-  if (nearest.radius == 0) {
+  for (int i = 0; i < planes.length(); ++i) {
+    float distance = planeClosestDistanceAlongRay(planes[i], ray);
+    if (distance < shortestDistance) {
+      shortestDistance = distance;
+      nearestIdx = i;
+      nearestType = 1;
+    }
+  }
+
+  for (int i = 0; i < boxes.length(); ++i) {
+    float distance = boxClosestDistanceAlongRay(boxes[i], ray);
+    if (distance < shortestDistance) {
+      shortestDistance = distance;
+      nearestIdx = i;
+      nearestType = 2;
+    }
+  }
+
+  if (nearestIdx == -1) {
     return background;
   }
 
   vec3 point = pointAtDistance(ray, shortestDistance);
-  return colorAt(scene, point, nearest);
+  vec3 objColor;
+  vec3 objNormalAt;
+
+  if (nearestType == 0) {
+    objColor = spheres[nearestIdx].color;
+    objNormalAt = sphereNormalAt(spheres[nearestIdx], point);
+  } else if (nearestType == 1) {
+    objColor = planes[nearestIdx].color;
+    objNormalAt = planes[nearestIdx].normal;
+  } else {
+    objColor = boxes[nearestIdx].color;
+    objNormalAt = boxNormalAt(boxes[nearestIdx], point);
+  }
+
+  return colorAt(scene, point, objColor, objNormalAt);
 }
 
 // ----------------------------------------
