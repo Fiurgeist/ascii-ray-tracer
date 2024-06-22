@@ -16,7 +16,7 @@ const vec3 background = vec3(127, 127, 127);
 // ----------------------------------------
 
 const float INF = 1. / 0.;
-const float THRESHOLD = 0.000001;
+const float THRESHOLD = 0.0001;
 
 // ----------------------------------------
 // Vector
@@ -289,14 +289,44 @@ struct Scene {
   Camera camera;
 };
 
+bool inShadow(vec3 point, vec3 light) {
+  Ray ray = newRay(point, light);
+  float lenght = length(light);
+
+  for (int i = 0; i < spheres.length(); ++i) {
+    if (sphereClosestDistanceAlongRay(spheres[i], ray) <= lenght) {
+      return true;
+    }
+  }
+
+  for (int i = 0; i < boxes.length(); ++i) {
+    if (boxClosestDistanceAlongRay(boxes[i], ray) <= lenght) {
+      return true;
+    }
+  }
+
+  for (int i = 0; i < planes.length(); ++i) {
+    if (planeClosestDistanceAlongRay(planes[i], ray) <= lenght) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 vec3 colorAt(Scene scene, vec3 point, vec3 objColor, vec3 normal) {
   vec3 color = vec3(0, 0, 0);
   for (int i = 0; i < lights.length(); ++i) {
     vec3 lightVector = lights[i].position - point;
+    if (inShadow(point, lightVector)) {
+      continue;
+    }
+
     float brightness = dot(normal, normalize(lightVector));
     if (brightness <= 0) {
       continue;
     }
+
     vec3 illumination = clamp(objColor * lights[i].color, 0, 255) * brightness;
     color = clamp(color + illumination, 0, 255);
   }
