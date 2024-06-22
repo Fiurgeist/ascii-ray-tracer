@@ -62,6 +62,15 @@ Ray newRay(vec3 start, vec3 direction) {
   return Ray(start, normalize(direction));
 }
 
+vec3 reflectRay(Ray ray, vec3 normal) {
+  float normalSquid = squid(normal);
+  if (normalSquid == 0) {
+    return ray.direction;
+  }
+
+  return ray.direction - (normal * (2 * dot(ray.direction, normal) / normalSquid));
+}
+
 // ----------------------------------------
 // Camera
 // ----------------------------------------
@@ -95,13 +104,55 @@ vec3 pointAtDistance(Ray ray, float distance) {
 }
 
 // ----------------------------------------
+// Material
+// ----------------------------------------
+
+struct Finish {
+  float ambient;
+  float diffuse;
+  float shiny;
+};
+
+const Finish defaultFinish = Finish(0.1, 0.7, 0);
+const Finish shinyFinish = Finish(0.1, 0.7, 0.5);
+
+vec3 highlightFor(Finish finish, vec3 reflection, vec3 light, vec3 lightColor) {
+  if (finish.shiny == 0) {
+    return vec3(0, 0, 0);
+  }
+
+  float intensity = dot(reflection, normalize(light));
+  if (intensity <= 0) {
+    return vec3(0, 0, 0);
+  }
+
+  float exp = 32 * finish.shiny * finish.shiny;
+  intensity = pow(intensity, exp);
+
+  return lightColor * (finish.shiny * intensity);
+}
+
+struct Material {
+  vec3 _color;
+  Finish finish;
+};
+
+vec3 ambientColor(Material mat) {
+  return mat._color * mat.finish.ambient;
+}
+
+vec3 diffuseColor(Material mat) {
+  return mat._color * mat.finish.diffuse;
+}
+
+// ----------------------------------------
 // Sphere
 // ----------------------------------------
 
 struct Sphere {
   vec3 center;
   float radius;
-  vec3 color;
+  Material material;
 };
 
 float sphereClosestDistanceAlongRay(Sphere sphere, Ray ray) {
@@ -140,7 +191,7 @@ vec3 sphereNormalAt(Sphere sphere, vec3 point) {
 struct Plane {
   vec3 normal;
   float distance;
-  vec3 color;
+  Material material;
 };
 
 float planeClosestDistanceAlongRay(Plane plane, Ray ray) {
@@ -165,7 +216,7 @@ float planeClosestDistanceAlongRay(Plane plane, Ray ray) {
 struct Box {
   vec3 lowerCorner;
   vec3 upperCorner;
-  vec3 color;
+  Material material;
 };
 
 float boxClosestDistanceAlongRay(Box box, Ray ray) {
@@ -272,16 +323,16 @@ struct Light {
 // ----------------------------------------
 
 Sphere spheres[5] = Sphere[5](
-  Sphere(vec3(7, 0, 2), 2, vec3(255, 0, 255)),
-  Sphere(vec3(6, 1, -4), 1, vec3(255, 255, 0)),
-  Sphere(vec3(-2, 2, 4), 2, vec3(0, 255, 0)),
-  Sphere(vec3(-4, 4, 10), 4, vec3(0, 0, 255)),
-  Sphere(vec3(-3.2, 1, -1), 1, vec3(0, 255, 255))
+  Sphere(vec3(7, 0, 2), 2, Material(vec3(255, 0, 255), shinyFinish)),
+  Sphere(vec3(6, 1, -4), 1, Material(vec3(255, 255, 0), shinyFinish)),
+  Sphere(vec3(-2, 2, 4), 2, Material(vec3(0, 255, 0), shinyFinish)),
+  Sphere(vec3(-4, 4, 10), 4, Material(vec3(0, 0, 255), shinyFinish)),
+  Sphere(vec3(-3.2, 1, -1), 1, Material(vec3(0, 255, 255), shinyFinish))
 );
 
-Plane planes[1] = Plane[1](Plane(UNITS.Y, 0, vec3(255, 255, 255)));
+Plane planes[1] = Plane[1](Plane(UNITS.Y, 0, Material(vec3(255, 255, 255), defaultFinish)));
 
-Box boxes[1] = Box[1](Box(vec3(-2, 0, -2), vec3(2, 4, 2), vec3(255, 0, 0)));
+Box boxes[1] = Box[1](Box(vec3(-2, 0, -2), vec3(2, 4, 2), Material(vec3(255, 0, 0), shinyFinish)));
 
 Light lights[1] = Light[1](Light(vec3(-30, 25, -12), vec3(255, 255, 255)));
 
@@ -314,8 +365,9 @@ bool inShadow(vec3 point, vec3 light) {
   return false;
 }
 
-vec3 colorAt(Scene scene, vec3 point, vec3 objColor, vec3 normal) {
-  vec3 color = vec3(0, 0, 0);
+vec3 colorAt(Scene scene, vec3 point, Material material, vec3 normal, Ray ray) {
+  vec3 color = ambientColor(material);
+  vec3 reflectionVec = reflectRay(ray, normal);
   for (int i = 0; i < lights.length(); ++i) {
     vec3 lightVector = lights[i].position - point;
     if (inShadow(point, lightVector)) {
@@ -327,8 +379,11 @@ vec3 colorAt(Scene scene, vec3 point, vec3 objColor, vec3 normal) {
       continue;
     }
 
-    vec3 illumination = clamp(objColor * lights[i].color, 0, 255) * brightness;
+    vec3 illumination = clamp(diffuseColor(material) * lights[i].color, 0, 255) * brightness;
     color = clamp(color + illumination, 0, 255);
+
+    vec3 highlight = highlightFor(material.finish, reflectionVec, lightVector, lights[i].color);
+    color = clamp(color + highlight, 0, 255);
   }
 
   return color;
@@ -373,21 +428,21 @@ vec3 trace(Scene scene, float x, float y) {
   }
 
   vec3 point = pointAtDistance(ray, shortestDistance);
-  vec3 objColor;
-  vec3 objNormalAt;
+  vec3 normalAt;
+  Material material;
 
   if (nearestType == 0) {
-    objColor = spheres[nearestIdx].color;
-    objNormalAt = sphereNormalAt(spheres[nearestIdx], point);
+    material = spheres[nearestIdx].material;
+    normalAt = sphereNormalAt(spheres[nearestIdx], point);
   } else if (nearestType == 1) {
-    objColor = planes[nearestIdx].color;
-    objNormalAt = planes[nearestIdx].normal;
+    material = planes[nearestIdx].material;
+    normalAt = planes[nearestIdx].normal;
   } else {
-    objColor = boxes[nearestIdx].color;
-    objNormalAt = boxNormalAt(boxes[nearestIdx], point);
+    material = boxes[nearestIdx].material;
+    normalAt = boxNormalAt(boxes[nearestIdx], point);
   }
 
-  return colorAt(scene, point, objColor, objNormalAt);
+  return colorAt(scene, point, material, normalAt, ray);
 }
 
 // ----------------------------------------
