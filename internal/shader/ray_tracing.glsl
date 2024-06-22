@@ -17,6 +17,8 @@ const vec3 background = vec3(127, 127, 127);
 
 const float INF = 1. / 0.;
 const float THRESHOLD = 0.0001;
+const int MAX_DEPTH = 8;
+const vec3 BLACK = vec3(0, 0, 0);
 
 // ----------------------------------------
 // Vector
@@ -50,16 +52,70 @@ float squid(vec3 vector) {
 }
 
 // ----------------------------------------
+// Material
+// ----------------------------------------
+
+struct Finish {
+  float ambient;
+  float diffuse;
+  float shiny;
+  float reflection;
+};
+
+const Finish defaultFinish = Finish(0.1, 0.7, 0, 0);
+const Finish shinyFinish = Finish(0.1, 0.7, 0.5, 0.5);
+
+vec3 highlightFor(Finish finish, vec3 reflection, vec3 light, vec3 lightColor) {
+  if (finish.shiny == 0) {
+    return vec3(0, 0, 0);
+  }
+
+  float intensity = dot(reflection, normalize(light));
+  if (intensity <= 0) {
+    return vec3(0, 0, 0);
+  }
+
+  float exp = 32 * finish.shiny * finish.shiny;
+  intensity = pow(intensity, exp);
+
+  return lightColor * (finish.shiny * intensity);
+}
+
+struct Material {
+  vec3 _color;
+  Finish finish;
+};
+
+vec3 ambientColor(Material mat) {
+  return mat._color * mat.finish.ambient;
+}
+
+vec3 diffuseColor(Material mat) {
+  return mat._color * mat.finish.diffuse;
+}
+
+// ----------------------------------------
 // Ray
 // ----------------------------------------
 
 struct Ray {
-  vec3 start;
-  vec3 direction;
+  vec3 start, direction;
+  vec3 normal, point, reflectionVec; // object normal
+  vec3 color;
+  int depth, reflRayIdx;
+  Material material;
 };
 
 Ray newRay(vec3 start, vec3 direction) {
-  return Ray(start, normalize(direction));
+  Ray ray;
+  ray.start = start;
+  ray.direction = normalize(direction);
+  ray.normal = UNITS.O;
+  ray.color = BLACK;
+  ray.depth = 0;
+  ray.reflRayIdx = -1;
+
+  return ray;
 }
 
 vec3 reflectRay(Ray ray, vec3 normal) {
@@ -101,48 +157,6 @@ Ray rayFor(Camera camera, float x, float y) {
 
 vec3 pointAtDistance(Ray ray, float distance) {
   return ray.start + (ray.direction * distance);
-}
-
-// ----------------------------------------
-// Material
-// ----------------------------------------
-
-struct Finish {
-  float ambient;
-  float diffuse;
-  float shiny;
-};
-
-const Finish defaultFinish = Finish(0.1, 0.7, 0);
-const Finish shinyFinish = Finish(0.1, 0.7, 0.5);
-
-vec3 highlightFor(Finish finish, vec3 reflection, vec3 light, vec3 lightColor) {
-  if (finish.shiny == 0) {
-    return vec3(0, 0, 0);
-  }
-
-  float intensity = dot(reflection, normalize(light));
-  if (intensity <= 0) {
-    return vec3(0, 0, 0);
-  }
-
-  float exp = 32 * finish.shiny * finish.shiny;
-  intensity = pow(intensity, exp);
-
-  return lightColor * (finish.shiny * intensity);
-}
-
-struct Material {
-  vec3 _color;
-  Finish finish;
-};
-
-vec3 ambientColor(Material mat) {
-  return mat._color * mat.finish.ambient;
-}
-
-vec3 diffuseColor(Material mat) {
-  return mat._color * mat.finish.diffuse;
 }
 
 // ----------------------------------------
@@ -336,9 +350,7 @@ Box boxes[1] = Box[1](Box(vec3(-2, 0, -2), vec3(2, 4, 2), Material(vec3(255, 0, 
 
 Light lights[1] = Light[1](Light(vec3(-30, 25, -12), vec3(255, 255, 255)));
 
-struct Scene {
-  Camera camera;
-};
+Camera camera = newCamera(vec3(-5, 7, -15), vec3(0, 4, 0));
 
 bool inShadow(vec3 point, vec3 light) {
   Ray ray = newRay(point, light);
@@ -365,84 +377,103 @@ bool inShadow(vec3 point, vec3 light) {
   return false;
 }
 
-vec3 colorAt(Scene scene, vec3 point, Material material, vec3 normal, Ray ray) {
-  vec3 color = ambientColor(material);
-  vec3 reflectionVec = reflectRay(ray, normal);
-  for (int i = 0; i < lights.length(); ++i) {
-    vec3 lightVector = lights[i].position - point;
-    if (inShadow(point, lightVector)) {
+vec3 trace(float x, float y) {
+  Ray rays[MAX_DEPTH];
+  rays[0] = rayFor(camera, x, y);
+  int castRays = 1;
+
+  for (int rayIdx = 0; rayIdx < castRays; ++rayIdx) {
+    int nearestIdx = -1;
+    int nearestType = -1;
+    float shortestDistance = INF;
+
+    for (int i = 0; i < spheres.length(); ++i) {
+      float distance = sphereClosestDistanceAlongRay(spheres[i], rays[rayIdx]);
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        nearestIdx = i;
+        nearestType = 0;
+      }
+    }
+
+    for (int i = 0; i < planes.length(); ++i) {
+      float distance = planeClosestDistanceAlongRay(planes[i], rays[rayIdx]);
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        nearestIdx = i;
+        nearestType = 1;
+      }
+    }
+
+    for (int i = 0; i < boxes.length(); ++i) {
+      float distance = boxClosestDistanceAlongRay(boxes[i], rays[rayIdx]);
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        nearestIdx = i;
+        nearestType = 2;
+      }
+    }
+
+    if (nearestIdx == -1) {
+      rays[rayIdx].color = background;
       continue;
     }
 
-    float brightness = dot(normal, normalize(lightVector));
-    if (brightness <= 0) {
-      continue;
+    vec3 point = pointAtDistance(rays[rayIdx], shortestDistance);
+    rays[rayIdx].point = point;
+
+    if (nearestType == 0) {
+      rays[rayIdx].material = spheres[nearestIdx].material;
+      rays[rayIdx].normal = sphereNormalAt(spheres[nearestIdx], point);
+    } else if (nearestType == 1) {
+      rays[rayIdx].material = planes[nearestIdx].material;
+      rays[rayIdx].normal = planes[nearestIdx].normal;
+    } else {
+      rays[rayIdx].material = boxes[nearestIdx].material;
+      rays[rayIdx].normal = boxNormalAt(boxes[nearestIdx], point);
     }
 
-    vec3 illumination = clamp(diffuseColor(material) * lights[i].color, 0, 255) * brightness;
-    color = clamp(color + illumination, 0, 255);
+    rays[rayIdx].color = ambientColor(rays[rayIdx].material);
+    rays[rayIdx].reflectionVec = reflectRay(rays[rayIdx], rays[rayIdx].normal);
 
-    vec3 highlight = highlightFor(material.finish, reflectionVec, lightVector, lights[i].color);
-    color = clamp(color + highlight, 0, 255);
-  }
+    if (rays[rayIdx].material.finish.reflection != 0 && rays[rayIdx].depth < MAX_DEPTH - 1) {
+      rays[rayIdx].reflRayIdx = castRays;
 
-  return color;
-}
+      rays[castRays] = rays[rayIdx];
+      rays[castRays].start = point;
+      rays[castRays].direction = rays[rayIdx].reflectionVec;
+      rays[castRays].depth++;
+      rays[castRays].reflRayIdx = -1;
 
-vec3 trace(Scene scene, float x, float y) {
-  Ray ray = rayFor(scene.camera, x, y);
-
-  int nearestIdx = -1;
-  int nearestType = -1;
-  float shortestDistance = INF;
-
-  for (int i = 0; i < spheres.length(); ++i) {
-    float distance = sphereClosestDistanceAlongRay(spheres[i], ray);
-    if (distance < shortestDistance) {
-      shortestDistance = distance;
-      nearestIdx = i;
-      nearestType = 0;
-    }
-  }
-
-  for (int i = 0; i < planes.length(); ++i) {
-    float distance = planeClosestDistanceAlongRay(planes[i], ray);
-    if (distance < shortestDistance) {
-      shortestDistance = distance;
-      nearestIdx = i;
-      nearestType = 1;
+      castRays++;
     }
   }
 
-  for (int i = 0; i < boxes.length(); ++i) {
-    float distance = boxClosestDistanceAlongRay(boxes[i], ray);
-    if (distance < shortestDistance) {
-      shortestDistance = distance;
-      nearestIdx = i;
-      nearestType = 2;
+  for (int rayIdx = castRays - 1; rayIdx >= 0; --rayIdx) {
+    if (rays[rayIdx].reflRayIdx >= 0) {
+      rays[rayIdx].color += rays[rays[rayIdx].reflRayIdx].color * rays[rayIdx].material.finish.reflection;
+    }
+
+    for (int i = 0; i < lights.length(); ++i) {
+      vec3 lightVector = lights[i].position - rays[rayIdx].point;
+      if (inShadow(rays[rayIdx].point, lightVector)) {
+        continue;
+      }
+
+      float brightness = dot(rays[rayIdx].normal, normalize(lightVector));
+      if (brightness <= 0) {
+        continue;
+      }
+
+      vec3 illumination = clamp(diffuseColor(rays[rayIdx].material) * lights[i].color, 0, 255) * brightness;
+      rays[rayIdx].color = clamp(rays[rayIdx].color + illumination, 0, 255);
+
+      vec3 highlight = highlightFor(rays[rayIdx].material.finish, rays[rayIdx].reflectionVec, lightVector, lights[i].color);
+      rays[rayIdx].color = clamp(rays[rayIdx].color + highlight, 0, 255);
     }
   }
 
-  if (nearestIdx == -1) {
-    return background;
-  }
-
-  vec3 point = pointAtDistance(ray, shortestDistance);
-  vec3 normalAt;
-  Material material;
-
-  if (nearestType == 0) {
-    material = spheres[nearestIdx].material;
-    normalAt = sphereNormalAt(spheres[nearestIdx], point);
-  } else if (nearestType == 1) {
-    material = planes[nearestIdx].material;
-    normalAt = planes[nearestIdx].normal;
-  } else {
-    material = boxes[nearestIdx].material;
-    normalAt = boxNormalAt(boxes[nearestIdx], point);
-  }
-
-  return colorAt(scene, point, material, normalAt, ray);
+  return rays[0].color;
 }
 
 // ----------------------------------------
@@ -450,13 +481,10 @@ vec3 trace(Scene scene, float x, float y) {
 // ----------------------------------------
 
 void main() {
-  Camera camera = newCamera(vec3(-5, 7, -15), vec3(0, 4, 0));
-  Scene scene = Scene(camera);
-
   ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
 
   float x = (pos.x / width) - 0.5;
   float y = (pos.y / height) - 0.5;
 
-  imageStore(outTex, pos, vec4(trace(scene, x, y), 0));
+  imageStore(outTex, pos, vec4(trace(x, y), 0));
 }
