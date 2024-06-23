@@ -18,7 +18,7 @@ layout(std430, binding = 2) buffer dynamicData
 // ----------------------------------------
 
 const float INF = 1. / 0.;
-const float THRESHOLD = 0.0001;
+const float THRESHOLD = 0.0005;
 const int MAX_DEPTH = 8;
 const vec3 BLACK = vec3(0, 0, 0);
 
@@ -94,6 +94,10 @@ vec3 ambientColor(Material mat) {
 
 vec3 diffuseColor(Material mat) {
   return mat._color * mat.finish.diffuse;
+}
+
+vec3 multiplyColor(vec3 color1, vec3 color2) {
+  return (color1 * color2) / 255.0;
 }
 
 // ----------------------------------------
@@ -467,7 +471,7 @@ vec3 trace(float x, float y) {
         continue;
       }
 
-      vec3 illumination = clamp(diffuseColor(rays[rayIdx].material) * lights[i].color, 0, 255) * brightness;
+      vec3 illumination = clamp(multiplyColor(diffuseColor(rays[rayIdx].material), lights[i].color) * brightness, 0, 255);
       rays[rayIdx].color = clamp(rays[rayIdx].color + illumination, 0, 255);
 
       vec3 highlight = highlightFor(rays[rayIdx].material.finish, rays[rayIdx].reflectionVec, lightVector, lights[i].color);

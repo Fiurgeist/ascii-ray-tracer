@@ -71,8 +71,10 @@ func (s Scene) colorAt(point vector.Vector, object object.Object, ray ray.Ray, d
 }
 
 func (s Scene) inShadow(point vector.Vector, lightVector vector.Vector) bool {
+	length := lightVector.Length()
+
 	for _, object := range s.Objects {
-		if object.ClosestDistanceAlongRay(ray.NewRay(point, lightVector)) <= lightVector.Length() {
+		if object.ClosestDistanceAlongRay(ray.NewRay(point, lightVector)) <= length {
 			return true
 		}
 	}
