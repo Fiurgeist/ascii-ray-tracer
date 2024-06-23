@@ -25,7 +25,7 @@ func (r *GameLoopRenderer) Render(scene scene.Scene, processor string) {
 	if processor == "gpu" {
 		r.Renderer.shader = &shader.Shader{Width: int32(r.Renderer.Width), Height: int32(r.Renderer.Height)}
 
-		r.Renderer.shader.Init()
+		r.Renderer.shader.Init(scene)
 		defer r.Renderer.shader.Delete()
 	}
 

@@ -35,7 +35,7 @@ func (r ConsoleRenderer) Render(scene scene.Scene, processor string) {
 	if processor == "gpu" {
 		r.shader = &shader.Shader{Width: int32(r.Width), Height: int32(r.Height)}
 
-		r.shader.Init()
+		r.shader.Init(scene)
 		defer r.shader.Delete()
 	}
 

@@ -2,14 +2,16 @@
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(rgba32f, binding = 0) uniform image2D outTex;
-layout(std430, binding = 1) buffer size
+layout(std430, binding = 1) buffer staticData
 {
   float width;
   float height;
+  vec3 background;
 };
-
-// TODO: add to buffer
-const vec3 background = vec3(127, 127, 127);
+layout(std430, binding = 2) buffer dynamicData
+{
+  vec3 cameraLocation;
+};
 
 // ----------------------------------------
 // Constants
@@ -67,12 +69,12 @@ const Finish shinyFinish = Finish(0.1, 0.7, 0.5, 0.5);
 
 vec3 highlightFor(Finish finish, vec3 reflection, vec3 light, vec3 lightColor) {
   if (finish.shiny == 0) {
-    return vec3(0, 0, 0);
+    return BLACK;
   }
 
   float intensity = dot(reflection, normalize(light));
   if (intensity <= 0) {
-    return vec3(0, 0, 0);
+    return BLACK;
   }
 
   float exp = 32 * finish.shiny * finish.shiny;
@@ -102,8 +104,8 @@ struct Ray {
   vec3 start, direction;
   vec3 normal, point, reflectionVec; // object normal
   vec3 color;
-  int depth, reflRayIdx;
   Material material;
+  int depth, reflRayIdx;
 };
 
 Ray newRay(vec3 start, vec3 direction) {
@@ -350,7 +352,7 @@ Box boxes[1] = Box[1](Box(vec3(-2, 0, -2), vec3(2, 4, 2), Material(vec3(255, 0, 
 
 Light lights[1] = Light[1](Light(vec3(-30, 25, -12), vec3(255, 255, 255)));
 
-Camera camera = newCamera(vec3(-5, 7, -15), vec3(0, 4, 0));
+Camera camera = newCamera(cameraLocation, vec3(0, 4, 0));
 
 bool inShadow(vec3 point, vec3 light) {
   Ray ray = newRay(point, light);
@@ -451,7 +453,7 @@ vec3 trace(float x, float y) {
 
   for (int rayIdx = castRays - 1; rayIdx >= 0; --rayIdx) {
     if (rays[rayIdx].reflRayIdx >= 0) {
-      rays[rayIdx].color += rays[rays[rayIdx].reflRayIdx].color * rays[rayIdx].material.finish.reflection;
+      rays[rayIdx].color = clamp(rays[rayIdx].color + (rays[rays[rayIdx].reflRayIdx].color * rays[rayIdx].material.finish.reflection), 0, 255);
     }
 
     for (int i = 0; i < lights.length(); ++i) {

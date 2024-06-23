@@ -15,14 +15,15 @@ import (
 const path = "./internal/shader/ray_tracing.glsl"
 
 type Shader struct {
-	Width      int32
-	Height     int32
-	outTex     uint32
-	sizeBuffer uint32
-	program    uint32
+	Width         int32
+	Height        int32
+	outTex        uint32
+	staticBuffer  uint32
+	dynamicBuffer uint32
+	program       uint32
 }
 
-func (s *Shader) Init() {
+func (s *Shader) Init(scene scene.Scene) {
 	// GLFW event handling must run on the main OS thread
 	runtime.LockOSThread()
 
@@ -85,12 +86,23 @@ func (s *Shader) Init() {
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, s.Width, s.Height, 0, gl.RGB, gl.FLOAT, nil)
 	gl.BindImageTexture(0, s.outTex, 0, false, 0, gl.WRITE_ONLY, gl.RGBA32F)
 
-	sizeData := []float32{float32(s.Width), float32(s.Height)}
+	staticData := []float32{
+		float32(s.Width), float32(s.Height),
+		0, 0, // padding for alignment
+		float32(scene.Background.R()), float32(scene.Background.G()), float32(scene.Background.B()),
+	}
 
-	gl.GenBuffers(1, &s.sizeBuffer)
-	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, s.sizeBuffer)
-	gl.BufferData(gl.SHADER_STORAGE_BUFFER, 2*4, gl.Ptr(sizeData), gl.STATIC_READ)
-	gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, s.sizeBuffer)
+	gl.GenBuffers(1, &s.staticBuffer)
+	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, s.staticBuffer)
+	gl.BufferData(gl.SHADER_STORAGE_BUFFER, 7*4, gl.Ptr(staticData), gl.STATIC_DRAW)
+	gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, s.staticBuffer)
+
+	dynamicData := []float32{float32(scene.Camera.Location.X), float32(scene.Camera.Location.Y), float32(scene.Camera.Location.Z)}
+
+	gl.GenBuffers(1, &s.dynamicBuffer)
+	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, s.dynamicBuffer)
+	gl.BufferData(gl.SHADER_STORAGE_BUFFER, 3*4, gl.Ptr(dynamicData), gl.DYNAMIC_DRAW)
+	gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, s.dynamicBuffer)
 }
 
 func (s *Shader) Delete() {
@@ -128,6 +140,12 @@ func compileShader() (uint32, error) {
 }
 
 func (s *Shader) Compute(scene scene.Scene) []float32 {
+	location := []float32{float32(scene.Camera.Location.X), float32(scene.Camera.Location.Y), float32(scene.Camera.Location.Z)}
+
+	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, s.dynamicBuffer)
+	gl.BufferSubData(gl.SHADER_STORAGE_BUFFER, 0, 3*4, gl.Ptr(location))
+	gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, s.dynamicBuffer)
+
 	gl.UseProgram(s.program)
 	gl.DispatchCompute(uint32(s.Width), uint32(s.Height), 1)
 	gl.MemoryBarrier(gl.ALL_BARRIER_BITS)
