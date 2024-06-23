@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"os"
+	"os/signal"
 
 	"github.com/fiurgeist/ascii-ray-tracer/internal/renderer"
 	"github.com/fiurgeist/ascii-ray-tracer/internal/scenes"
@@ -34,5 +36,19 @@ func main() {
 		}
 	}
 
-	renderMode.Render(scene, *processor)
+	if *output == "loop" {
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt)
+
+		go func() {
+			renderMode.Render(scene, *processor)
+		}()
+
+		<-stop
+
+		renderMode.(*renderer.GameLoopRenderer).Stop()
+		renderer.ResetConsole()
+	} else {
+		renderMode.Render(scene, *processor)
+	}
 }

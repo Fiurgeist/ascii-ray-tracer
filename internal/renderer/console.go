@@ -126,3 +126,9 @@ func ansiColor(color color.Color) string {
 func ansiBackgroundColor(color color.Color) string {
 	return fmt.Sprintf("%s48;2;%d;%d;%dm", esc, color.R(), color.G(), color.B())
 }
+
+func ResetConsole() {
+	fmt.Printf(colorReset)
+	fmt.Printf("%s2J", esc)
+	fmt.Printf("%s%d;%dH", esc, 1, 1)
+}

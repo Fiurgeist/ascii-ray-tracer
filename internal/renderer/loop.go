@@ -3,6 +3,7 @@ package renderer
 import (
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/fiurgeist/ascii-ray-tracer/internal/scene"
@@ -17,11 +18,16 @@ var _ Renderer = (*GameLoopRenderer)(nil)
 type GameLoopRenderer struct {
 	Renderer ConsoleRenderer
 
-	angle  float64
-	radius float64
+	wg      sync.WaitGroup
+	running bool
+	angle   float64
+	radius  float64
 }
 
 func (r *GameLoopRenderer) Render(scene scene.Scene, processor string) {
+	r.wg.Add(1)
+	defer r.wg.Done()
+
 	if processor == "gpu" {
 		r.Renderer.shader = &shader.Shader{Width: int32(r.Renderer.Width), Height: int32(r.Renderer.Height)}
 
@@ -32,12 +38,13 @@ func (r *GameLoopRenderer) Render(scene scene.Scene, processor string) {
 	rVec := scene.Camera.Location.Substract(scene.Camera.LookAt)
 	r.radius = math.Sqrt(rVec.X*rVec.X + rVec.Z*rVec.Z)
 	r.angle = math.Asin(rVec.Z / r.radius)
+	r.running = true
 
 	fmt.Printf("%s2J", esc)
 
 	delta := 0.0
 
-	for {
+	for r.running {
 		start := time.Now()
 
 		r.update(delta, scene)
@@ -52,6 +59,13 @@ func (r *GameLoopRenderer) Render(scene scene.Scene, processor string) {
 		fmt.Printf("%s%d;%dH", esc, r.Renderer.Height/2+1, 1)
 		fmt.Printf("FPS: %.1f\n", 1/delta)
 	}
+}
+
+func (r *GameLoopRenderer) Stop() {
+	r.running = false
+	r.wg.Wait()
+
+	ResetConsole()
 }
 
 func (r *GameLoopRenderer) update(delta float64, scene scene.Scene) {
